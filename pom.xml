@@ -38,6 +38,7 @@
                             <goal>shade</goal>
                         </goals>
                         <configuration>
+                            <finalName>${project.name}</finalName>
                             <minimizeJar>true</minimizeJar>
                         </configuration>
                     </execution>
