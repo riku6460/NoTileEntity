@@ -2,3 +2,4 @@ name: NoTileEntity
 version: ${project.version}
 main: pw.riku.notileentity.NoTileEntity
 authors: [riku6460]
+depend: [ProtocolLib]
