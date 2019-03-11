@@ -8,24 +8,35 @@ import com.comphenix.protocol.events.PacketEvent;
 import com.comphenix.protocol.wrappers.BlockPosition;
 import com.comphenix.protocol.wrappers.nbt.NbtBase;
 import com.comphenix.protocol.wrappers.nbt.NbtCompound;
+import org.bukkit.Bukkit;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
+import org.bukkit.configuration.InvalidConfigurationException;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.*;
+import java.io.*;
 
 public final class NoTileEntity extends JavaPlugin {
 
     private Set<UUID> players = new HashSet<>();
-    private List<String> blocks;
+    private Configuration configuration;
 
     @Override
     public void onEnable() {
         saveDefaultConfig();
-        blocks = getConfig().getStringList("blocks");
+        try {
+            configuration = new Configuration(getDataFolder().toPath().resolve("config.yml"));
+        } catch (IOException | InvalidConfigurationException e) {
+            getLogger().severe("Failed to load configuration file! disabling NoTileEntity");
+            e.printStackTrace();
+            Bukkit.getPluginManager().disablePlugin(this);
+            return;
+        }
+
         ProtocolManager manager = ProtocolLibrary.getProtocolManager();
         manager.addPacketListener(new PacketAdapter(this, PacketType.Play.Server.TILE_ENTITY_DATA) {
             @Override
@@ -33,7 +44,7 @@ public final class NoTileEntity extends JavaPlugin {
                 if (players.contains(event.getPlayer().getUniqueId())) {
                     BlockPosition position = event.getPacket().getBlockPositionModifier().read(0);
                     Material material = position.toLocation(event.getPlayer().getWorld()).getBlock().getType();
-                    if (blocks.contains(material.name())) {
+                    if (configuration.getTargetBlocks().contains(material)) {
                         event.setCancelled(true);
                     }
                 }
@@ -53,7 +64,7 @@ public final class NoTileEntity extends JavaPlugin {
                             int y = compound.getInteger("y");
                             int z = compound.getInteger("z");
                             Material material = new Location(event.getPlayer().getWorld(), x, y, z).getBlock().getType();
-                            if (blocks.contains(material.name())) {
+                            if (configuration.getTargetBlocks().contains(material)) {
                                 iterator.remove();
                             }
                         }
@@ -67,8 +78,7 @@ public final class NoTileEntity extends JavaPlugin {
     @Override
     public boolean onCommand(CommandSender sender, Command command, String label, String[] args) {
         if (!(sender instanceof Player)) {
-            reloadConfig();
-            sender.sendMessage("reload complete!");
+            reloadAsync(sender);
             return true;
         }
 
@@ -91,9 +101,7 @@ public final class NoTileEntity extends JavaPlugin {
                 }
                 case "reload": {
                     if (player.hasPermission("notileentity.admin")) {
-                        reloadConfig();
-                        blocks = getConfig().getStringList("blocks");
-                        sender.sendMessage("reload complete!");
+                        reloadAsync(sender);
                         break;
                     }
                 }
@@ -113,5 +121,19 @@ public final class NoTileEntity extends JavaPlugin {
             players.add(uuid);
             return true;
         }
+    }
+
+    private void reloadAsync(CommandSender receiver) {
+        Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
+            try {
+                configuration.load();
+            } catch (IOException | InvalidConfigurationException e) {
+                getLogger().warning("Failed to load configuration file!");
+                e.printStackTrace();
+                receiver.sendMessage("reload failed!");
+                return;
+            }
+            receiver.sendMessage("reload complete!");
+        });
     }
 }
