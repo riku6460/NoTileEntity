@@ -3,3 +3,14 @@ version: ${project.version}
 main: pw.riku.notileentity.NoTileEntity
 authors: [riku6460]
 depend: [ProtocolLib]
+commands:
+  notileentity:
+    aliases: [nte]
+    permission: notileentity.use
+permissions:
+  notileentity.*:
+    children:
+      notileentity.use:
+        default: true
+      notileentity.admin:
+        default: op
